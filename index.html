@@ -1,0 +1,716 @@
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Fasting Console</title>
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#14242b">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Fasting">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="apple-touch-icon" href="icon-192.png">
+<link rel="icon" href="icon-192.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ink:#14242b;          /* deep teal-charcoal */
+    --ink-2:#2a4750;
+    --paper:#eef1f3;        /* cool working surface */
+    --card:#ffffff;
+    --line:#d7dee2;
+    --fast:#1f8a8c;         /* fasting / teal */
+    --feed:#e0922f;         /* feeding window / amber */
+    --prot:#3a7bd5;         /* protein */
+    --carb:#caa23a;         /* carbohydrate */
+    --fat:#c25b6b;          /* fat */
+    --good:#1f8a4c;
+    --bad:#c0473f;
+    --muted:#6c7c83;
+    --mono:'JetBrains Mono',ui-monospace,monospace;
+    --disp:'Space Grotesk',system-ui,sans-serif;
+    --body:'Inter',system-ui,sans-serif;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0}
+  body{background:var(--paper);color:var(--ink);font-family:var(--body);font-size:15px;line-height:1.5;-webkit-font-smoothing:antialiased}
+  button{font-family:inherit;cursor:pointer}
+  input,select{font-family:inherit}
+  h1,h2,h3{font-family:var(--disp);margin:0;letter-spacing:-.01em}
+  .mono{font-family:var(--mono)}
+  .wrap{max-width:920px;margin:0 auto;padding:0 18px 80px}
+
+  /* Header */
+  header{background:var(--ink);color:#eaf2f3;padding:18px 0 0}
+  .head-in{max-width:920px;margin:0 auto;padding:0 18px}
+  .brand{display:flex;align-items:baseline;gap:12px}
+  .brand h1{font-size:24px;font-weight:700;color:#fff}
+  .brand .sub{font-family:var(--mono);font-size:11px;color:#7fb6b7;letter-spacing:.14em;text-transform:uppercase}
+  nav{display:flex;gap:2px;margin-top:16px}
+  nav button{background:none;border:0;color:#9fc0c1;padding:10px 16px;font-family:var(--disp);font-weight:500;font-size:14px;border-bottom:2px solid transparent}
+  nav button.on{color:#fff;border-bottom-color:var(--feed)}
+  nav button:hover{color:#fff}
+
+  .card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:18px;margin-top:16px}
+  .card h2{font-size:13px;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);font-weight:600;margin-bottom:14px}
+  .row{display:flex;gap:16px;flex-wrap:wrap}
+  .col{flex:1;min-width:240px}
+
+  /* Date nav */
+  .datenav{display:flex;align-items:center;gap:10px;margin-top:18px}
+  .datenav button{width:34px;height:34px;border:1px solid var(--line);background:#fff;border-radius:8px;font-size:16px;color:var(--ink)}
+  .datenav .d{font-family:var(--disp);font-weight:600;font-size:18px}
+  .datenav .today-btn{margin-left:auto;border:1px solid var(--line);background:#fff;border-radius:8px;padding:6px 12px;font-size:13px}
+
+  /* Ring */
+  .ringwrap{display:flex;gap:22px;align-items:center;flex-wrap:wrap}
+  .ring-fig{position:relative;width:180px;height:180px;flex:0 0 auto}
+  .ring-fig .ctr{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center}
+  .ring-fig .big{font-family:var(--disp);font-weight:700;font-size:30px;line-height:1}
+  .ring-fig .lbl{font-family:var(--mono);font-size:10px;letter-spacing:.12em;color:var(--muted);text-transform:uppercase;margin-top:4px}
+  .legend{display:flex;flex-direction:column;gap:8px}
+  .legend .it{display:flex;align-items:center;gap:8px;font-size:13px}
+  .dot{width:11px;height:11px;border-radius:3px;flex:0 0 auto}
+  .winrow{display:flex;gap:14px;flex-wrap:wrap;margin-top:14px}
+  .winrow label{display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--muted)}
+  .winrow input{border:1px solid var(--line);border-radius:8px;padding:7px 9px;font-family:var(--mono);font-size:14px}
+
+  /* Macro bars */
+  .macro{margin-top:12px}
+  .macro .bar-head{display:flex;justify-content:space-between;align-items:baseline;font-size:13px;margin-bottom:5px}
+  .macro .bar-head b{font-family:var(--disp)}
+  .macro .track{height:9px;background:#eef1f3;border-radius:6px;overflow:hidden}
+  .macro .fill{height:100%;border-radius:6px;transition:width .35s ease}
+  .kcal-big{font-family:var(--disp);font-weight:700;font-size:40px;line-height:1}
+  .kcal-sub{font-family:var(--mono);font-size:12px;color:var(--muted)}
+
+  /* Food add */
+  .search{display:flex;gap:8px;margin-bottom:10px}
+  .search input{flex:1;border:1px solid var(--line);border-radius:9px;padding:10px 12px;font-size:14px}
+  .search button{border:1px solid var(--ink);background:var(--ink);color:#fff;border-radius:9px;padding:0 14px;font-weight:600;font-size:13px}
+  .results{max-height:230px;overflow:auto;border:1px solid var(--line);border-radius:9px;display:none}
+  .results.show{display:block}
+  .fitem{display:flex;align-items:center;gap:10px;padding:9px 12px;border-bottom:1px solid #eef1f3}
+  .fitem:last-child{border-bottom:0}
+  .fitem:hover{background:#f6f9fa}
+  .fitem .nm{flex:1;font-size:14px}
+  .fitem .mc{font-family:var(--mono);font-size:11px;color:var(--muted)}
+  .fitem .add{border:1px solid var(--feed);color:var(--feed);background:#fff;border-radius:7px;padding:4px 10px;font-weight:600;font-size:13px}
+
+  .entries{margin-top:6px}
+  .entry{display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid #eef1f3}
+  .entry .nm{flex:1;font-size:14px}
+  .entry .qty{width:64px;border:1px solid var(--line);border-radius:7px;padding:5px 7px;font-family:var(--mono);font-size:13px;text-align:right}
+  .entry .unit{font-size:11px;color:var(--muted);width:46px}
+  .entry .kc{font-family:var(--mono);font-size:13px;width:62px;text-align:right}
+  .entry .del{border:0;background:none;color:var(--bad);font-size:17px;line-height:1}
+  .empty{color:var(--muted);font-size:14px;padding:14px 0;text-align:center}
+
+  .toggle{display:inline-flex;border:1px solid var(--line);border-radius:9px;overflow:hidden}
+  .toggle button{border:0;background:#fff;padding:8px 16px;font-size:13px;color:var(--muted)}
+  .toggle button.on{background:var(--fast);color:#fff;font-weight:600}
+  .inline-lbl{display:flex;align-items:center;gap:10px;flex-wrap:wrap;font-size:13px;color:var(--muted)}
+  .inline-lbl input[type=number]{width:80px;border:1px solid var(--line);border-radius:8px;padding:7px 9px;font-family:var(--mono)}
+
+  /* settings */
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+  .fld{display:flex;flex-direction:column;gap:5px}
+  .fld span{font-size:12px;color:var(--muted)}
+  .fld input{border:1px solid var(--line);border-radius:8px;padding:9px 10px;font-family:var(--mono);font-size:14px}
+  .btn{border:1px solid var(--ink);background:var(--ink);color:#fff;border-radius:9px;padding:10px 16px;font-weight:600;font-size:14px}
+  .btn.ghost{background:#fff;color:var(--ink)}
+  .btn.warn{background:#fff;color:var(--bad);border-color:var(--bad)}
+
+  /* history */
+  .htable{width:100%;border-collapse:collapse;font-size:13px}
+  .htable th{text-align:right;font-family:var(--mono);font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);padding:8px 8px;border-bottom:1px solid var(--line);font-weight:500}
+  .htable th:first-child,.htable td:first-child{text-align:left}
+  .htable td{padding:9px 8px;border-bottom:1px solid #eef1f3;font-family:var(--mono);text-align:right}
+  .badge{display:inline-block;padding:2px 7px;border-radius:6px;font-size:11px;font-weight:600}
+  .badge.in{background:#e4f3ea;color:var(--good)}
+  .badge.out{background:#f7e6e4;color:var(--bad)}
+  .tick{color:var(--good)}.cross{color:#b9c4c8}
+
+  /* analysis */
+  .ctl{display:flex;gap:12px;align-items:flex-end;flex-wrap:wrap;margin-bottom:6px}
+  .ctl select{border:1px solid var(--line);border-radius:8px;padding:9px 10px;font-size:14px;min-width:190px}
+  .impbar{display:flex;align-items:center;gap:10px;margin:9px 0}
+  .impbar .name{width:150px;font-size:13px;text-align:right;flex:0 0 auto}
+  .impbar .track{flex:1;height:22px;background:#f3f6f7;border-radius:5px;position:relative;display:flex;align-items:center}
+  .impbar .zero{position:absolute;left:50%;top:0;bottom:0;width:1px;background:#c7d0d4}
+  .impbar .fill{position:absolute;height:14px;border-radius:4px;top:4px}
+  .impbar .val{width:84px;font-family:var(--mono);font-size:12px;color:var(--muted);flex:0 0 auto}
+  .note{background:#f6f9fa;border:1px solid var(--line);border-left:3px solid var(--feed);border-radius:8px;padding:12px 14px;font-size:13px;color:var(--ink-2);margin-top:14px}
+  .note b{font-family:var(--disp)}
+  .gate{text-align:center;padding:36px 18px;color:var(--muted)}
+  .gate .big{font-family:var(--disp);font-size:18px;color:var(--ink);margin-bottom:6px}
+  .corr td .cibar{display:inline-block;height:6px;background:var(--fast);border-radius:3px;vertical-align:middle}
+  .seedrow{display:flex;gap:10px;flex-wrap:wrap;margin-top:8px}
+  .pill{font-family:var(--mono);font-size:11px;color:var(--muted)}
+  @media(max-width:560px){.grid2{grid-template-columns:1fr}.impbar .name{width:96px}}
+</style>
+
+<header>
+  <div class="head-in">
+    <div class="brand">
+      <h1>Fasting Console</h1>
+      <span class="sub">intake · window · attribution</span>
+    </div>
+    <nav id="nav">
+      <button data-tab="today" class="on">Today</button>
+      <button data-tab="history">History</button>
+      <button data-tab="analysis">Analysis</button>
+      <button data-tab="settings">Settings</button>
+    </nav>
+  </div>
+</header>
+
+<div class="wrap">
+  <div id="today"></div>
+  <div id="history" style="display:none"></div>
+  <div id="analysis" style="display:none"></div>
+  <div id="settings" style="display:none"></div>
+</div>
+
+<script>
+/* ============================== STORAGE ============================== */
+// Set API_BASE to your backend URL (e.g. 'https://fasting.example.com') to sync
+// across devices via the FastAPI server. Leave '' for on-device only.
+const API_BASE='';
+const KEY='if_tracker_v1';
+let DB=null;            // whole app state
+let mem=null;           // in-memory fallback if window.storage absent
+let saveTimer=null;
+
+function defaults(){
+  return {
+    settings:{
+      kcalTarget:2000, proteinTarget:130, carbTarget:200, fatTarget:65,
+      rangeLow:1700, rangeHigh:2100,
+      planStart:'12:00', planEnd:'20:00'
+    },
+    custom:[],          // user-added foods
+    days:{}             // 'YYYY-MM-DD' -> day record
+  };
+}
+async function loadDB(){
+  try{
+    if(API_BASE){
+      const res=await fetch(API_BASE+'/state');
+      DB = res.ok ? await res.json() : defaults();
+    }else if(window.storage){
+      const r=await window.storage.get(KEY);
+      DB = r && r.value ? JSON.parse(r.value) : defaults();
+    }else if(window.localStorage){
+      const r=localStorage.getItem(KEY);
+      DB = r ? JSON.parse(r) : defaults();
+    }else{ DB = mem || defaults(); }
+  }catch(e){ DB = mem || defaults(); }
+  // migrate missing keys
+  const d=defaults(); DB.settings={...d.settings,...(DB.settings||{})};
+  DB.custom=DB.custom||[]; DB.days=DB.days||{};
+}
+function saveDB(){
+  mem=DB;
+  clearTimeout(saveTimer);
+  saveTimer=setTimeout(async()=>{
+    try{
+      if(API_BASE){
+        await fetch(API_BASE+'/state',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(DB)});
+      }else if(window.storage){
+        await window.storage.set(KEY,JSON.stringify(DB));
+      }else if(window.localStorage){
+        localStorage.setItem(KEY,JSON.stringify(DB));
+      }
+    }catch(e){}
+  },350);
+}
+
+/* ============================== FOOD DB ============================== */
+// per ONE unit: [name, unit, kcal, protein, carb, fat]
+const FOODS=[
+ ["Egg, large","piece",72,6.3,0.4,4.8],["Egg white","piece",17,3.6,0.2,0.1],
+ ["Chicken breast","100g",165,31,0,3.6],["Chicken thigh","100g",209,26,0,10.9],
+ ["Turkey breast","100g",135,30,0,1],["Salmon","100g",208,20,0,13],
+ ["Tuna, canned","100g",116,26,0,1],["Shrimp","100g",99,24,0.2,0.3],
+ ["Beef, lean","100g",250,26,0,15],["Greek yogurt, plain","100g",59,10,3.6,0.4],
+ ["Milk, whole","cup",149,8,12,8],["Cheddar","slice",113,7,0.4,9],
+ ["Mozzarella","100g",280,28,3,17],["Cottage cheese","100g",98,11,3.4,4.3],
+ ["Whey protein","scoop",120,24,3,1.5],["Tofu","100g",76,8,1.9,4.8],
+ ["White rice, cooked","100g",130,2.7,28,0.3],["Brown rice, cooked","100g",112,2.6,24,0.9],
+ ["Quinoa, cooked","100g",120,4.4,21,1.9],["Pasta, cooked","100g",131,5,25,1.1],
+ ["Bread, whole wheat","slice",69,3.6,12,0.9],["Bread, white","slice",75,2.6,14,1],
+ ["Oats, dry","100g",389,17,66,7],["Rice cake","piece",35,0.7,7.3,0.3],
+ ["Potato, boiled","100g",87,1.9,20,0.1],["Sweet potato","100g",86,1.6,20,0.1],
+ ["Lentils, cooked","100g",116,9,20,0.4],["Chickpeas, cooked","100g",164,8.9,27,2.6],
+ ["Black beans, cooked","100g",132,8.9,24,0.5],["Hummus","tbsp",25,1.2,2,1.4],
+ ["Banana","piece",105,1.3,27,0.4],["Apple","piece",95,0.5,25,0.3],
+ ["Orange","piece",62,1.2,15,0.2],["Dates","piece",20,0.2,5.3,0],
+ ["Avocado","piece",240,3,12,22],["Broccoli","100g",34,2.8,7,0.4],
+ ["Spinach","100g",23,2.9,3.6,0.4],["Tomato","piece",22,1.1,4.8,0.2],
+ ["Cucumber","100g",15,0.7,3.6,0.1],["Carrot","piece",25,0.6,6,0.1],
+ ["Bell pepper","piece",31,1,6,0.3],["Almonds","10 pcs",70,2.5,2.6,6],
+ ["Walnuts","100g",654,15,14,65],["Peanut butter","tbsp",94,4,3,8],
+ ["Pumpkin seeds","tbsp",47,2.5,1.5,4],["Olive oil","tbsp",119,0,0,14],
+ ["Butter","tbsp",102,0.1,0,11.5],["Honey","tbsp",64,0.1,17,0],
+ ["Dark chocolate","square",60,0.8,4.6,4.3],["Coffee, black","cup",2,0.3,0,0],
+ ["Pizza","slice",285,12,36,10]
+];
+function allFoods(){ return FOODS.concat((DB.custom||[]).map(f=>[f.name,f.unit,f.kcal,f.p,f.c,f.f,true])); }
+
+/* ============================== HELPERS ============================== */
+const $=s=>document.querySelector(s);
+function todayStr(){const d=new Date();return d.toISOString().slice(0,10);}
+let curDate=todayStr();
+function fmtDate(s){const d=new Date(s+'T00:00:00');return d.toLocaleDateString(undefined,{weekday:'short',month:'short',day:'numeric'});}
+function getDay(s){ if(!DB.days[s]) DB.days[s]={entries:[],exercised:false,exerciseMin:0,weight:null,firstMeal:'',lastMeal:''}; return DB.days[s]; }
+function dayTotals(rec){let k=0,p=0,c=0,f=0;(rec.entries||[]).forEach(e=>{k+=e.kcal;p+=e.p;c+=e.c;f+=e.f;});return {k,p,c,f};}
+function hhmmToDec(t){if(!t||!/^\d{1,2}:\d{2}$/.test(t))return null;const[a,b]=t.split(':').map(Number);return a+b/60;}
+function fastingHours(rec){const a=hhmmToDec(rec.firstMeal),b=hhmmToDec(rec.lastMeal);if(a==null||b==null||b<a)return null;return +(24-(b-a)).toFixed(1);}
+function windowHours(rec){const a=hhmmToDec(rec.firstMeal),b=hhmmToDec(rec.lastMeal);if(a==null||b==null||b<a)return null;return +(b-a).toFixed(1);}
+function uid(){return Math.random().toString(36).slice(2,9);}
+
+/* ============================== TABS ============================== */
+const TABS=['today','history','analysis','settings'];
+document.querySelectorAll('#nav button').forEach(b=>{
+  b.onclick=()=>{
+    document.querySelectorAll('#nav button').forEach(x=>x.classList.remove('on'));
+    b.classList.add('on');
+    TABS.forEach(t=>$('#'+t).style.display='none');
+    const t=b.dataset.tab; $('#'+t).style.display='block';
+    if(t==='today')renderToday();
+    if(t==='history')renderHistory();
+    if(t==='analysis')renderAnalysis();
+    if(t==='settings')renderSettings();
+  };
+});
+
+/* ============================== TODAY ============================== */
+function describeArc(cx,cy,r,startDeg,endDeg){
+  const pol=(deg)=>{const a=(deg-90)*Math.PI/180;return [cx+r*Math.cos(a),cy+r*Math.sin(a)];};
+  const [x1,y1]=pol(startDeg),[x2,y2]=pol(endDeg);
+  const large=((endDeg-startDeg)%360+360)%360>180?1:0;
+  return `M ${x1} ${y1} A ${r} ${r} 0 ${large} 1 ${x2} ${y2}`;
+}
+function renderToday(){
+  const rec=getDay(curDate);const t=dayTotals(rec);const s=DB.settings;
+  const winA=hhmmToDec(rec.firstMeal),winB=hhmmToDec(rec.lastMeal);
+  const fh=fastingHours(rec);
+  // ring: full teal (fast) base, amber arc for feeding window
+  let feedArc='';
+  if(winA!=null&&winB!=null&&winB>winA){
+    feedArc=`<path d="${describeArc(90,90,72,winA/24*360,winB/24*360)}" stroke="var(--feed)" stroke-width="14" fill="none" stroke-linecap="round"/>`;
+  }
+  const macroBar=(label,val,tgt,color)=>{
+    const pct=tgt>0?Math.min(100,val/tgt*100):0;
+    return `<div class="macro"><div class="bar-head"><span>${label}</span><span><b>${Math.round(val)}</b> / ${tgt} g</span></div>
+      <div class="track"><div class="fill" style="width:${pct}%;background:${color}"></div></div></div>`;
+  };
+  const kpct=s.kcalTarget>0?Math.min(100,t.k/s.kcalTarget*100):0;
+  $('#today').innerHTML=`
+    <div class="datenav">
+      <button id="prevD">‹</button>
+      <span class="d">${fmtDate(curDate)}</span>
+      <button id="nextD">›</button>
+      <button class="today-btn" id="jumpToday">Today</button>
+    </div>
+
+    <div class="card">
+      <h2>Fast & feed</h2>
+      <div class="ringwrap">
+        <div class="ring-fig">
+          <svg viewBox="0 0 180 180" width="180" height="180">
+            <circle cx="90" cy="90" r="72" stroke="#eef1f3" stroke-width="14" fill="none"/>
+            <circle cx="90" cy="90" r="72" stroke="var(--fast)" stroke-width="14" fill="none" stroke-dasharray="2 6" opacity="0.55"/>
+            ${feedArc}
+            <circle cx="90" cy="6" r="2.5" fill="#c7d0d4"/>
+          </svg>
+          <div class="ctr">
+            <div class="big">${fh!=null?fh+'h':'—'}</div>
+            <div class="lbl">fasting</div>
+          </div>
+        </div>
+        <div style="flex:1;min-width:200px">
+          <div class="legend">
+            <div class="it"><span class="dot" style="background:var(--feed)"></span> Feeding window ${winA!=null&&winB!=null?`<span class="pill">${rec.firstMeal}–${rec.lastMeal} · ${windowHours(rec)}h</span>`:''}</div>
+            <div class="it"><span class="dot" style="background:var(--fast)"></span> Fasting · rest of clock</div>
+          </div>
+          <div class="winrow">
+            <label>First meal<input type="time" id="firstMeal" value="${rec.firstMeal}"></label>
+            <label>Last meal<input type="time" id="lastMeal" value="${rec.lastMeal}"></label>
+          </div>
+          <div class="pill" style="margin-top:8px">Planned window ${s.planStart}–${s.planEnd}</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="row">
+      <div class="col card">
+        <h2>Energy today</h2>
+        <div style="display:flex;align-items:baseline;gap:10px">
+          <span class="kcal-big" style="color:${t.k>s.rangeHigh||t.k<s.rangeLow&&t.k>0?'var(--bad)':'var(--ink)'}">${Math.round(t.k)}</span>
+          <span class="kcal-sub">/ ${s.kcalTarget} kcal · range ${s.rangeLow}–${s.rangeHigh}</span>
+        </div>
+        <div class="track" style="height:9px;background:#eef1f3;border-radius:6px;overflow:hidden;margin-top:10px">
+          <div class="fill" style="height:100%;width:${kpct}%;background:var(--feed);border-radius:6px"></div>
+        </div>
+        ${macroBar('Protein',t.p,s.proteinTarget,'var(--prot)')}
+        ${macroBar('Carbohydrate',t.c,s.carbTarget,'var(--carb)')}
+        ${macroBar('Fat',t.f,s.fatTarget,'var(--fat)')}
+      </div>
+      <div class="col card">
+        <h2>Activity & body</h2>
+        <div style="margin-bottom:14px">
+          <div style="font-size:12px;color:var(--muted);margin-bottom:6px">Exercise today</div>
+          <div class="toggle">
+            <button id="exNo" class="${!rec.exercised?'on':''}">No</button>
+            <button id="exYes" class="${rec.exercised?'on':''}">Yes</button>
+          </div>
+          <div class="inline-lbl" style="margin-top:10px;${rec.exercised?'':'opacity:.4;pointer-events:none'}">
+            Minutes <input type="number" id="exMin" min="0" step="5" value="${rec.exerciseMin||0}">
+          </div>
+        </div>
+        <div class="inline-lbl">Weight <input type="number" id="weight" step="0.1" placeholder="kg" value="${rec.weight??''}"> kg</div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Log food</h2>
+      <div class="search">
+        <input id="foodSearch" placeholder="Search foods — egg, rice, salmon…" autocomplete="off">
+        <button id="customBtn">+ Custom</button>
+      </div>
+      <div class="results" id="results"></div>
+      <div id="customForm"></div>
+      <div class="entries" id="entries"></div>
+    </div>
+  `;
+  // wiring
+  $('#prevD').onclick=()=>{curDate=shiftDate(curDate,-1);renderToday();};
+  $('#nextD').onclick=()=>{curDate=shiftDate(curDate,1);renderToday();};
+  $('#jumpToday').onclick=()=>{curDate=todayStr();renderToday();};
+  $('#firstMeal').onchange=e=>{rec.firstMeal=e.target.value;saveDB();renderToday();};
+  $('#lastMeal').onchange=e=>{rec.lastMeal=e.target.value;saveDB();renderToday();};
+  $('#exNo').onclick=()=>{rec.exercised=false;saveDB();renderToday();};
+  $('#exYes').onclick=()=>{rec.exercised=true;saveDB();renderToday();};
+  const exMin=$('#exMin');if(exMin)exMin.onchange=e=>{rec.exerciseMin=+e.target.value||0;saveDB();};
+  $('#weight').onchange=e=>{rec.weight=e.target.value===''?null:+e.target.value;saveDB();};
+  $('#customBtn').onclick=showCustomForm;
+  const fs=$('#foodSearch');
+  fs.oninput=()=>renderResults(fs.value);
+  fs.onfocus=()=>renderResults(fs.value);
+  renderEntries();
+}
+function shiftDate(s,n){const d=new Date(s+'T00:00:00');d.setDate(d.getDate()+n);return d.toISOString().slice(0,10);}
+
+function renderResults(q){
+  const box=$('#results');q=(q||'').trim().toLowerCase();
+  if(!q){box.classList.remove('show');box.innerHTML='';return;}
+  const matches=allFoods().filter(f=>f[0].toLowerCase().includes(q)).slice(0,30);
+  if(!matches.length){box.classList.add('show');box.innerHTML='<div class="empty">No match. Use + Custom to add it.</div>';return;}
+  box.classList.add('show');
+  box.innerHTML=matches.map((f,i)=>`
+    <div class="fitem">
+      <div class="nm">${f[0]} <span class="mc">/ ${f[1]}</span></div>
+      <div class="mc">${f[2]} kcal · P${f[3]} C${f[4]} F${f[5]}</div>
+      <button class="add" data-i="${i}">Add</button>
+    </div>`).join('');
+  box.querySelectorAll('.add').forEach((b,i)=>b.onclick=()=>addFood(matches[i]));
+}
+function addFood(f,qty=1){
+  const rec=getDay(curDate);
+  rec.entries.push({id:uid(),name:f[0],unit:f[1],qty,
+    kcal:+(f[2]*qty).toFixed(1),p:+(f[3]*qty).toFixed(1),c:+(f[4]*qty).toFixed(1),f:+(f[5]*qty).toFixed(1),
+    base:[f[2],f[3],f[4],f[5]]});
+  // auto-capture first/last meal time when logging for today and unset
+  if(curDate===todayStr()){
+    const now=new Date().toTimeString().slice(0,5);
+    if(!rec.firstMeal)rec.firstMeal=now;
+    rec.lastMeal=now;
+  }
+  saveDB();
+  $('#foodSearch').value='';$('#results').classList.remove('show');$('#results').innerHTML='';
+  renderToday();
+}
+function renderEntries(){
+  const rec=getDay(curDate);const box=$('#entries');
+  if(!rec.entries.length){box.innerHTML='<div class="empty">Nothing logged yet. Search a food above to begin.</div>';return;}
+  box.innerHTML=rec.entries.map(e=>`
+    <div class="entry">
+      <span class="nm">${e.name}</span>
+      <input class="qty" type="number" min="0" step="0.25" value="${e.qty}" data-id="${e.id}">
+      <span class="unit">${e.unit}</span>
+      <span class="kc">${Math.round(e.kcal)} kcal</span>
+      <button class="del" data-id="${e.id}">×</button>
+    </div>`).join('');
+  box.querySelectorAll('.qty').forEach(inp=>inp.onchange=()=>{
+    const e=rec.entries.find(x=>x.id===inp.dataset.id);const q=+inp.value||0;e.qty=q;
+    if(e.base){e.kcal=+(e.base[0]*q).toFixed(1);e.p=+(e.base[1]*q).toFixed(1);e.c=+(e.base[2]*q).toFixed(1);e.f=+(e.base[3]*q).toFixed(1);}
+    saveDB();renderToday();
+  });
+  box.querySelectorAll('.del').forEach(b=>b.onclick=()=>{
+    rec.entries=rec.entries.filter(x=>x.id!==b.dataset.id);saveDB();renderToday();
+  });
+}
+function showCustomForm(){
+  const box=$('#customForm');
+  box.innerHTML=`<div class="card" style="margin-top:10px;background:#f6f9fa">
+    <div class="grid2">
+      <label class="fld"><span>Name</span><input id="cf_n" placeholder="e.g. Lentil soup"></label>
+      <label class="fld"><span>Unit (per 1)</span><input id="cf_u" placeholder="bowl / 100g / piece" value="serving"></label>
+      <label class="fld"><span>Calories</span><input id="cf_k" type="number" placeholder="kcal"></label>
+      <label class="fld"><span>Protein g</span><input id="cf_p" type="number" placeholder="g"></label>
+      <label class="fld"><span>Carb g</span><input id="cf_c" type="number" placeholder="g"></label>
+      <label class="fld"><span>Fat g</span><input id="cf_f" type="number" placeholder="g"></label>
+    </div>
+    <div style="margin-top:12px;display:flex;gap:8px;align-items:center">
+      <button class="btn" id="cf_add">Add to today</button>
+      <label style="font-size:13px;color:var(--muted);display:flex;align-items:center;gap:6px"><input type="checkbox" id="cf_save"> save to my foods</label>
+      <button class="btn ghost" id="cf_cancel">Cancel</button>
+    </div>
+  </div>`;
+  $('#cf_cancel').onclick=()=>box.innerHTML='';
+  $('#cf_add').onclick=()=>{
+    const n=$('#cf_n').value.trim()||'Custom item';const u=$('#cf_u').value.trim()||'serving';
+    const k=+$('#cf_k').value||0,p=+$('#cf_p').value||0,c=+$('#cf_c').value||0,f=+$('#cf_f').value||0;
+    const food=[n,u,k,p,c,f];
+    if($('#cf_save').checked){DB.custom.push({name:n,unit:u,kcal:k,p,c,f});}
+    box.innerHTML='';addFood(food);
+  };
+}
+
+/* ============================== HISTORY ============================== */
+function lastNDates(n){const out=[];let d=todayStr();for(let i=0;i<n;i++){out.push(d);d=shiftDate(d,-1);}return out;}
+function renderHistory(){
+  const s=DB.settings;
+  const dates=lastNDates(30).filter(d=>DB.days[d]&&(DB.days[d].entries.length||DB.days[d].weight!=null));
+  const logged=dates.length;
+  let rows='';
+  dates.forEach(d=>{
+    const rec=DB.days[d];const t=dayTotals(rec);const fh=fastingHours(rec);
+    const inRange=t.k>=s.rangeLow&&t.k<=s.rangeHigh;
+    rows+=`<tr>
+      <td>${fmtDate(d)}</td>
+      <td>${Math.round(t.k)}</td>
+      <td style="color:var(--prot)">${Math.round(t.p)}</td>
+      <td style="color:var(--carb)">${Math.round(t.c)}</td>
+      <td style="color:var(--fat)">${Math.round(t.f)}</td>
+      <td>${fh!=null?fh+'h':'—'}</td>
+      <td>${rec.exercised?'<span class="tick">✓ '+(rec.exerciseMin||0)+'m</span>':'<span class="cross">—</span>'}</td>
+      <td>${rec.weight!=null?rec.weight:'—'}</td>
+      <td><span class="badge ${inRange?'in':'out'}">${inRange?'in':'out'}</span></td>
+    </tr>`;
+  });
+  $('#history').innerHTML=`
+    <div class="card">
+      <h2>Last 30 days · ${logged} logged</h2>
+      ${logged?`<div style="overflow-x:auto"><table class="htable">
+        <thead><tr><th>Date</th><th>kcal</th><th>P</th><th>C</th><th>F</th><th>Fast</th><th>Exercise</th><th>Weight</th><th>Range</th></tr></thead>
+        <tbody>${rows}</tbody></table></div>`
+      :'<div class="empty">No days logged yet. Add food on the Today tab and your history builds here.</div>'}
+    </div>
+    ${logged?summaryCard(dates):''}
+  `;
+}
+function summaryCard(dates){
+  const s=DB.settings;let k=0,fhs=[],exDays=0,inR=0;
+  dates.forEach(d=>{const rec=DB.days[d];const t=dayTotals(rec);k+=t.k;const fh=fastingHours(rec);if(fh!=null)fhs.push(fh);if(rec.exercised)exDays++;if(t.k>=s.rangeLow&&t.k<=s.rangeHigh)inR++;});
+  const n=dates.length;const avgK=Math.round(k/n);const avgFh=fhs.length?(fhs.reduce((a,b)=>a+b,0)/fhs.length).toFixed(1):'—';
+  const stat=(big,lbl)=>`<div style="flex:1;min-width:120px"><div class="kcal-big" style="font-size:30px">${big}</div><div class="kcal-sub">${lbl}</div></div>`;
+  return `<div class="card"><h2>Month at a glance</h2><div class="row">
+    ${stat(avgK,'avg kcal / day')}
+    ${stat(avgFh+'h','avg fasting')}
+    ${stat(Math.round(exDays/n*100)+'%','days exercised')}
+    ${stat(Math.round(inR/n*100)+'%','days in range')}
+  </div></div>`;
+}
+
+/* ============================== ANALYSIS (ridge + exact linear SHAP) ============================== */
+function transpose(A){const r=A.length,c=A[0].length,T=Array.from({length:c},()=>new Array(r));for(let i=0;i<r;i++)for(let j=0;j<c;j++)T[j][i]=A[i][j];return T;}
+function matmul(A,B){const r=A.length,n=A[0].length,c=B[0].length,C=Array.from({length:r},()=>new Array(c).fill(0));for(let i=0;i<r;i++)for(let k=0;k<n;k++){const a=A[i][k];for(let j=0;j<c;j++)C[i][j]+=a*B[k][j];}return C;}
+function matvec(A,v){return A.map(row=>row.reduce((s,a,j)=>s+a*v[j],0));}
+function inverse(M){const n=M.length,id=Array.from({length:n},(_,i)=>Array.from({length:n},(_,j)=>i===j?1:0)),A=M.map((row,i)=>[...row,...id[i]]);for(let col=0;col<n;col++){let piv=col;for(let r=col+1;r<n;r++)if(Math.abs(A[r][col])>Math.abs(A[piv][col]))piv=r;[A[col],A[piv]]=[A[piv],A[col]];const d=A[col][col]||1e-12;for(let j=0;j<2*n;j++)A[col][j]/=d;for(let r=0;r<n;r++){if(r===col)continue;const f=A[r][col];for(let j=0;j<2*n;j++)A[r][j]-=f*A[col][j];}}return A.map(row=>row.slice(n));}
+function pearson(x,y){const n=x.length,mx=x.reduce((a,b)=>a+b,0)/n,my=y.reduce((a,b)=>a+b,0)/n;let sxy=0,sx=0,sy=0;for(let i=0;i<n;i++){sxy+=(x[i]-mx)*(y[i]-my);sx+=(x[i]-mx)**2;sy+=(y[i]-my)**2;}return sxy/(Math.sqrt(sx*sy)||1e-12);}
+
+// candidate features: name, accessor(rec) -> number|null
+const FEATURES=[
+  {key:'fast',  name:'Fasting hours',     get:r=>fastingHours(r)},
+  {key:'window',name:'Eating window (h)', get:r=>windowHours(r)},
+  {key:'first', name:'First-meal hour',   get:r=>hhmmToDec(r.firstMeal)},
+  {key:'ex',    name:'Exercised (0/1)',   get:r=>r.exercised?1:0},
+  {key:'exmin', name:'Exercise minutes',  get:r=>r.exercised?(r.exerciseMin||0):0},
+  {key:'meals', name:'Number of meals',   get:r=>(r.entries||[]).length},
+  {key:'inrange',name:'Within range (0/1)',get:r=>{const t=dayTotals(r);return (t.k>=DB.settings.rangeLow&&t.k<=DB.settings.rangeHigh)?1:0;}},
+  {key:'prot',  name:'Protein (g)',       get:r=>dayTotals(r).p},
+  {key:'carb',  name:'Carbohydrate (g)',  get:r=>dayTotals(r).c},
+  {key:'fat',   name:'Fat (g)',           get:r=>dayTotals(r).f},
+];
+const TARGETS=[
+  {key:'kcal',  name:'Total calories',  get:r=>dayTotals(r).k, exclude:['prot','carb','fat','inrange']},
+  {key:'weight',name:'Body weight',     get:r=>r.weight,       exclude:[], needWeight:true},
+  {key:'prot',  name:'Protein intake',  get:r=>dayTotals(r).p, exclude:['prot']},
+];
+let curTarget='kcal', curWaterDay=null;
+
+function buildMatrix(target){
+  const tgt=TARGETS.find(t=>t.key===target);
+  const feats=FEATURES.filter(f=>!tgt.exclude.includes(f.key));
+  const dates=lastNDates(30).filter(d=>DB.days[d]&&DB.days[d].entries.length).reverse();
+  const rows=[],ys=[],keptDates=[];
+  dates.forEach(d=>{
+    const rec=DB.days[d];const y=tgt.get(rec);
+    if(y==null||isNaN(y))return;
+    const row=feats.map(f=>f.get(rec));
+    if(row.some(v=>v==null||isNaN(v)))return;
+    rows.push(row);ys.push(y);keptDates.push(d);
+  });
+  return {feats,X:rows,y:ys,dates:keptDates};
+}
+function renderAnalysis(){
+  const opts=TARGETS.map(t=>{
+    const has=t.needWeight?Object.values(DB.days).some(d=>d.weight!=null):true;
+    return `<option value="${t.key}" ${t.key===curTarget?'selected':''} ${has?'':'disabled'}>${t.name}${has?'':' (no weight logged)'}</option>`;
+  }).join('');
+  const {feats,X,y,dates}=buildMatrix(curTarget);
+  const n=X.length;
+  let body;
+  if(n<8){
+    body=`<div class="gate"><div class="big">${n} of 8 days ready</div>
+      Log at least 8 complete days (food + meal times) to run the attribution model.
+      It grows more reliable as the month fills in.</div>`;
+  }else{
+    // standardize
+    const p=feats.length;const mean=new Array(p).fill(0),std=new Array(p).fill(0);
+    for(let j=0;j<p;j++){for(let i=0;i<n;i++)mean[j]+=X[i][j];mean[j]/=n;}
+    for(let j=0;j<p;j++){for(let i=0;i<n;i++)std[j]+=(X[i][j]-mean[j])**2;std[j]=Math.sqrt(std[j]/n)||1e-9;}
+    const keep=[];for(let j=0;j<p;j++)if(std[j]>1e-7)keep.push(j);
+    const F=keep.map(j=>feats[j]);
+    const Z=X.map(row=>keep.map(j=>(row[j]-mean[j])/std[j]));
+    const ybar=y.reduce((a,b)=>a+b,0)/n;const yc=y.map(v=>v-ybar);
+    const lambda=1.0;
+    const Zt=transpose(Z);const ZtZ=matmul(Zt,Z);for(let i=0;i<ZtZ.length;i++)ZtZ[i][i]+=lambda;
+    const beta=matvec(inverse(ZtZ),matvec(Zt,yc));
+    // exact linear SHAP: phi_ij = beta_j * z_ij ; global = mean_i|phi_ij|
+    const phi=Z.map(z=>z.map((zij,j)=>beta[j]*zij));
+    const global=F.map((_,j)=>phi.reduce((s,row)=>s+Math.abs(row[j]),0)/n);
+    // signed mean effect (direction) on target scale per +1 std of feature ~ beta_j (since y centered, units of y)
+    const order=F.map((f,j)=>({f,j,imp:global[j],dir:beta[j]})).sort((a,b)=>b.imp-a.imp);
+    const maxImp=Math.max(...global,1e-9);
+    const tgtName=TARGETS.find(t=>t.key===curTarget).name;
+    const unit=curTarget==='weight'?'kg':(curTarget==='kcal'?'kcal':'g');
+
+    const bars=order.map(o=>{
+      const w=o.imp/maxImp*48; // half-width %
+      const pos=o.dir>=0;
+      return `<div class="impbar">
+        <div class="name">${o.f.name}</div>
+        <div class="track"><div class="zero"></div>
+          <div class="fill" style="${pos?`left:50%;width:${w}%;background:var(--bad)`:`right:50%;width:${w}%;background:var(--fast)`}"></div>
+        </div>
+        <div class="val">${o.dir>=0?'+':''}${o.dir.toFixed(1)}</div>
+      </div>`;
+    }).join('');
+
+    // correlations with Fisher-z 95% CI
+    let corrRows='';
+    F.forEach((f,j)=>{
+      const xj=X.map(row=>row[keep[j]]);const r=pearson(xj,y);
+      let lo='—',hi='—',sig=false;
+      if(n>3){const z=Math.atanh(Math.max(-0.999,Math.min(0.999,r)));const se=1/Math.sqrt(n-3);
+        lo=Math.tanh(z-1.96*se);hi=Math.tanh(z+1.96*se);sig=(lo>0||hi<0);
+        lo=lo.toFixed(2);hi=hi.toFixed(2);}
+      corrRows+=`<tr><td style="text-align:left;font-family:var(--body)">${f.name}</td>
+        <td>${r.toFixed(2)}</td><td>[${lo}, ${hi}]</td>
+        <td>${sig?'<span class="badge in">sig</span>':'<span class="cross">ns</span>'}</td></tr>`;
+    });
+
+    // per-day waterfall
+    if(!curWaterDay||!dates.includes(curWaterDay))curWaterDay=dates[dates.length-1];
+    const wi=dates.indexOf(curWaterDay);
+    const wphi=phi[wi];const pred=ybar+wphi.reduce((a,b)=>a+b,0);const actual=y[wi];
+    const wfMax=Math.max(...wphi.map(Math.abs),1e-9);
+    const wfRows=F.map((f,j)=>{
+      const v=wphi[j];const w=Math.abs(v)/wfMax*48;const pos=v>=0;
+      return `<div class="impbar">
+        <div class="name">${f.name}</div>
+        <div class="track"><div class="zero"></div>
+          <div class="fill" style="${pos?`left:50%;width:${w}%;background:var(--bad)`:`right:50%;width:${w}%;background:var(--fast)`}"></div></div>
+        <div class="val">${v>=0?'+':''}${v.toFixed(0)}</div>
+      </div>`;
+    }).join('');
+    const dayOpts=dates.map(d=>`<option value="${d}" ${d===curWaterDay?'selected':''}>${fmtDate(d)}</option>`).join('');
+
+    body=`
+      <h2 style="margin-top:4px">Global drivers of ${tgtName.toLowerCase()}</h2>
+      <div class="pill" style="margin-bottom:10px">n = ${n} days · ridge λ=1 · bar = mean |SHAP| · number = effect per +1 SD (${unit}) · <span style="color:var(--bad)">▮ raises</span> · <span style="color:var(--fast)">▮ lowers</span></div>
+      ${bars}
+      <div class="note"><b>Reading this:</b> bars rank features by how much they move ${tgtName.toLowerCase()} across your month (exact SHAP for the fitted linear model). The signed number is the change in ${tgtName.toLowerCase()} (${unit}) associated with a one‑standard‑deviation increase in that behaviour, holding the others fixed. These are <b>associations in your own data, not causes</b>, and with ${n} days they are indicative rather than conclusive.</div>
+
+      <h2 style="margin-top:22px">Per-day attribution</h2>
+      <div class="ctl"><select id="waterSel">${dayOpts}</select>
+        <div class="pill">predicted ${Math.round(pred)} ${unit} · actual ${Math.round(actual)} ${unit} · baseline ${Math.round(ybar)} ${unit}</div></div>
+      ${wfRows}
+
+      <h2 style="margin-top:22px">Univariate correlations</h2>
+      <table class="htable corr"><thead><tr><th style="text-align:left">Feature</th><th>r</th><th>95% CI</th><th>&nbsp;</th></tr></thead><tbody>${corrRows}</tbody></table>
+    `;
+  }
+  $('#analysis').innerHTML=`
+    <div class="card">
+      <div class="ctl">
+        <label class="fld"><span>Explain which outcome?</span><select id="targetSel">${opts}</select></label>
+      </div>
+      ${body}
+    </div>`;
+  $('#targetSel').onchange=e=>{curTarget=e.target.value;curWaterDay=null;renderAnalysis();};
+  const ws=$('#waterSel');if(ws)ws.onchange=e=>{curWaterDay=e.target.value;renderAnalysis();};
+}
+
+/* ============================== SETTINGS ============================== */
+function renderSettings(){
+  const s=DB.settings;
+  const f=(id,lbl,val,step='1')=>`<label class="fld"><span>${lbl}</span><input id="${id}" type="number" step="${step}" value="${val}"></label>`;
+  const customList=(DB.custom||[]).map((c,i)=>`<div class="entry"><span class="nm">${c.name} <span class="mc">/ ${c.unit}</span></span><span class="kc">${c.kcal} kcal</span><button class="del" data-i="${i}">×</button></div>`).join('')||'<div class="empty">No saved custom foods yet.</div>';
+  $('#settings').innerHTML=`
+    <div class="card"><h2>Daily targets</h2>
+      <div class="grid2">
+        ${f('kcalTarget','Calorie target',s.kcalTarget)}
+        <div></div>
+        ${f('proteinTarget','Protein g',s.proteinTarget)}
+        ${f('carbTarget','Carb g',s.carbTarget)}
+        ${f('fatTarget','Fat g',s.fatTarget)}
+      </div>
+      <h2 style="margin-top:20px">In-range band</h2>
+      <div class="grid2">${f('rangeLow','Lower kcal',s.rangeLow)}${f('rangeHigh','Upper kcal',s.rangeHigh)}</div>
+      <h2 style="margin-top:20px">Planned eating window</h2>
+      <div class="grid2">
+        <label class="fld"><span>Window start</span><input id="planStart" type="time" value="${s.planStart}"></label>
+        <label class="fld"><span>Window end</span><input id="planEnd" type="time" value="${s.planEnd}"></label>
+      </div>
+      <div style="margin-top:16px"><button class="btn" id="saveSet">Save settings</button></div>
+    </div>
+    <div class="card"><h2>My saved foods</h2><div class="entries">${customList}</div></div>
+    <div class="card"><h2>Data</h2>
+      <p style="font-size:13px;color:var(--muted);margin:0 0 12px">Everything is stored on your device and persists between sessions. Export keeps a JSON backup.</p>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button class="btn ghost" id="exportBtn">Export JSON</button>
+        <button class="btn warn" id="resetBtn">Erase all data</button>
+      </div>
+    </div>`;
+  $('#saveSet').onclick=()=>{
+    ['kcalTarget','proteinTarget','carbTarget','fatTarget','rangeLow','rangeHigh'].forEach(k=>s[k]=+$('#'+k).value||0);
+    s.planStart=$('#planStart').value;s.planEnd=$('#planEnd').value;saveDB();
+    $('#saveSet').textContent='Saved ✓';setTimeout(()=>$('#saveSet').textContent='Save settings',1200);
+  };
+  $('#settings').querySelectorAll('.del').forEach(b=>b.onclick=()=>{DB.custom.splice(+b.dataset.i,1);saveDB();renderSettings();});
+  $('#exportBtn').onclick=()=>{
+    const blob=new Blob([JSON.stringify(DB,null,2)],{type:'application/json'});
+    const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='fasting-data.json';a.click();
+  };
+  $('#resetBtn').onclick=()=>{if(confirm('Erase all logged days and settings? This cannot be undone.')){DB=defaults();saveDB();renderSettings();}};
+}
+
+/* ============================== BOOT ============================== */
+if('serviceWorker' in navigator){ navigator.serviceWorker.register('sw.js').catch(()=>{}); }
+(async function(){ await loadDB(); renderToday(); })();
+</script>
