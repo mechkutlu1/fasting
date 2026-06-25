@@ -1,5 +1,5 @@
 // Fasting Console — offline cache (cache-first for app shell)
-const CACHE = 'fasting-console-v1';
+const CACHE = 'fasting-console-v3';
 const SHELL = ['./', 'index.html', 'manifest.webmanifest', 'icon-192.png', 'icon-512.png'];
 
 self.addEventListener('install', e => {

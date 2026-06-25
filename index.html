@@ -152,6 +152,41 @@
   .seedrow{display:flex;gap:10px;flex-wrap:wrap;margin-top:8px}
   .pill{font-family:var(--mono);font-size:11px;color:var(--muted)}
   @media(max-width:560px){.grid2{grid-template-columns:1fr}.impbar .name{width:96px}}
+
+  /* labs */
+  nav{overflow-x:auto;-webkit-overflow-scrolling:touch}
+  nav::-webkit-scrollbar{display:none}
+  nav button{white-space:nowrap;flex:0 0 auto}
+  .unittoggle{display:inline-flex;border:1px solid var(--line);border-radius:8px;overflow:hidden}
+  .unittoggle button{border:0;background:#fff;padding:6px 12px;font-size:12px;color:var(--muted)}
+  .unittoggle button.on{background:var(--ink);color:#fff;font-weight:600}
+  .labgrid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+  .labfld{display:flex;flex-direction:column;gap:4px}
+  .labfld span{font-size:12px;color:var(--muted)}
+  .labfld .inp{display:flex;align-items:center;gap:6px}
+  .labfld input,.labfld select{border:1px solid var(--line);border-radius:8px;padding:8px 9px;font-family:var(--mono);font-size:14px;width:100%}
+  .labfld .u{font-family:var(--mono);font-size:11px;color:var(--muted);flex:0 0 auto}
+  .bm{display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid #eef1f3}
+  .bm .lbl{flex:1;font-size:14px}
+  .bm .v{font-family:var(--mono);font-size:14px}
+  .bm .st{font-size:11px;font-weight:600;padding:3px 9px;border-radius:6px}
+  .st.ok{background:#e4f3ea;color:var(--good)}
+  .st.warn{background:#fbf0db;color:#9a6b16}
+  .st.bad{background:#f7e6e4;color:var(--bad)}
+  .rec{border:1px solid var(--line);border-left:3px solid var(--feed);border-radius:9px;padding:13px 15px;margin-top:12px;background:#fff}
+  .rec.bad{border-left-color:var(--bad)}
+  .rec .rh{display:flex;align-items:center;gap:10px;margin-bottom:6px}
+  .rec .rh b{font-family:var(--disp);font-size:15px}
+  .rec p{margin:6px 0;font-size:13px;color:var(--ink-2)}
+  .chips{display:flex;gap:7px;flex-wrap:wrap;margin-top:8px}
+  .chip{border:1px solid var(--line);background:#f6f9fa;border-radius:20px;padding:5px 12px;font-size:12px;color:var(--ink);cursor:pointer}
+  .chip:hover{border-color:var(--feed)}
+  .clin{font-size:12px;color:var(--bad);margin-top:8px;display:flex;align-items:center;gap:6px}
+  .followbtn{border:1px solid var(--feed);background:#fff;color:var(--feed);border-radius:8px;padding:6px 12px;font-size:13px;font-weight:600;margin-top:10px}
+  .followbtn.on{background:var(--feed);color:#fff}
+  .focuschip{display:inline-flex;align-items:center;gap:8px;background:#fff;border:1px solid var(--feed);border-radius:20px;padding:6px 6px 6px 12px;font-size:13px;margin:4px 6px 0 0}
+  .focuschip button{border:0;background:none;color:var(--bad);font-size:16px;line-height:1;cursor:pointer}
+  .disclaim{background:#fbf0db;border:1px solid #e8d39a;border-radius:9px;padding:12px 14px;font-size:12.5px;color:#6b5417;margin-top:14px}
 </style>
 
 <header>
@@ -163,6 +198,7 @@
     <nav id="nav">
       <button data-tab="today" class="on">Today</button>
       <button data-tab="history">History</button>
+      <button data-tab="labs">Labs</button>
       <button data-tab="analysis">Analysis</button>
       <button data-tab="settings">Settings</button>
     </nav>
@@ -172,6 +208,7 @@
 <div class="wrap">
   <div id="today"></div>
   <div id="history" style="display:none"></div>
+  <div id="labs" style="display:none"></div>
   <div id="analysis" style="display:none"></div>
   <div id="settings" style="display:none"></div>
 </div>
@@ -195,6 +232,8 @@ function defaults(){
       bodyWeight:70        // kg, default for exercise calorie estimate
     },
     custom:[],          // user-added foods
+    labs:[],            // dated biomarker panels
+    focuses:[],         // selected diet focuses from lab recommendations
     days:{}             // 'YYYY-MM-DD' -> day record
   };
 }
@@ -213,7 +252,8 @@ async function loadDB(){
   }catch(e){ DB = mem || defaults(); }
   // migrate missing keys
   const d=defaults(); DB.settings={...d.settings,...(DB.settings||{})};
-  DB.custom=DB.custom||[]; DB.days=DB.days||{};
+  DB.custom=DB.custom||[]; DB.days=DB.days||{}; DB.labs=DB.labs||[]; DB.focuses=DB.focuses||[];
+  if(!DB.settings.labUnits)DB.settings.labUnits='conv';
 }
 function saveDB(){
   mem=DB;
@@ -301,7 +341,7 @@ function windowHours(rec){const a=hhmmToDec(rec.firstMeal),b=hhmmToDec(rec.lastM
 function uid(){return Math.random().toString(36).slice(2,9);}
 
 /* ============================== TABS ============================== */
-const TABS=['today','history','analysis','settings'];
+const TABS=['today','history','labs','analysis','settings'];
 document.querySelectorAll('#nav button').forEach(b=>{
   b.onclick=()=>{
     document.querySelectorAll('#nav button').forEach(x=>x.classList.remove('on'));
@@ -310,6 +350,7 @@ document.querySelectorAll('#nav button').forEach(b=>{
     const t=b.dataset.tab; $('#'+t).style.display='block';
     if(t==='today')renderToday();
     if(t==='history')renderHistory();
+    if(t==='labs')renderLabs();
     if(t==='analysis')renderAnalysis();
     if(t==='settings')renderSettings();
   };
@@ -405,6 +446,7 @@ function renderToday(){
 
     <div class="card">
       <h2>Log food</h2>
+      ${DB.focuses.length?`<div class="pill" style="margin-bottom:6px">Suggested for your lab focuses</div><div class="chips" style="margin-bottom:12px">${focusFoodsTuples().map(t=>`<span class="chip" data-qadd="${t[0]}">+ ${t[0]}</span>`).join('')}</div>`:''}
       <div class="search">
         <input id="foodSearch" placeholder="Search foods — egg, rice, salmon…" autocomplete="off">
         <button id="customBtn">+ Custom</button>
@@ -429,6 +471,7 @@ function renderToday(){
   };
   $('#weight').onchange=e=>{rec.weight=e.target.value===''?null:+e.target.value;saveDB();renderToday();};
   $('#customBtn').onclick=showCustomForm;
+  $('#today').querySelectorAll('[data-qadd]').forEach(c=>c.onclick=()=>{const t=allFoods().find(f=>f[0]===c.dataset.qadd);if(t)addFood(t);});
   const fs=$('#foodSearch');
   fs.oninput=()=>renderResults(fs.value);
   fs.onfocus=()=>renderResults(fs.value);
@@ -716,6 +759,202 @@ function renderAnalysis(){
     </div>`;
   $('#targetSel').onchange=e=>{curTarget=e.target.value;curWaterDay=null;renderAnalysis();};
   const ws=$('#waterSel');if(ws)ws.onchange=e=>{curWaterDay=e.target.value;renderAnalysis();};
+}
+
+/* ============================== LABS / BIOMARKERS ============================== */
+// Reference ranges are typical adult values and vary by lab, sex and region.
+// bands are ascending by `max`; classify() returns the first band where value < max.
+// status: ok | warn | bad. Bands that are out-of-range carry advice + suggested foods.
+const BIOMARKERS=[
+ {key:'glucose', label:'Fasting glucose', group:'Metabolic',
+   units:{conv:'mg/dL', si:'mmol/L'},
+   bands:{
+     conv:[{max:70,status:'warn',label:'Low',advice:'A low fasting glucose can cause shakiness or fatigue — make sure your eating window includes balanced meals and discuss recurrent lows with your clinician.',clinician:true},
+           {max:100,status:'ok',label:'Normal'},
+           {max:126,status:'warn',label:'Prediabetic range',advice:'Favour high-fibre, lower-glycaemic foods — legumes, oats, vegetables, whole grains — and limit sugary drinks and refined carbohydrates. A consistent fasting window may also support glucose control.',foods:['Lentils','Chickpeas','Oats','Broccoli','Spinach','Quinoa','Black beans'],clinician:true},
+           {max:Infinity,status:'bad',label:'Diabetic range',advice:'Values in this range warrant medical review. General dietary direction is fibre-rich, lower-glycaemic eating with reduced refined carbohydrate and sugar; please confirm a plan with your clinician.',foods:['Lentils','Chickpeas','Oats','Broccoli','Spinach','Quinoa'],clinician:true}]},
+   siBands:[{max:3.9,status:'warn',label:'Low',advice:'A low fasting glucose can cause shakiness or fatigue — keep balanced meals in your eating window and discuss recurrent lows with your clinician.',clinician:true},
+            {max:5.6,status:'ok',label:'Normal'},
+            {max:7.0,status:'warn',label:'Prediabetic range',advice:'Favour high-fibre, lower-glycaemic foods — legumes, oats, vegetables, whole grains — and limit sugary drinks and refined carbohydrates.',foods:['Lentils','Chickpeas','Oats','Broccoli','Spinach','Quinoa','Black beans'],clinician:true},
+            {max:Infinity,status:'bad',label:'Diabetic range',advice:'Values in this range warrant medical review. General direction is fibre-rich, lower-glycaemic eating; confirm a plan with your clinician.',foods:['Lentils','Chickpeas','Oats','Broccoli','Spinach','Quinoa'],clinician:true}]},
+ {key:'hba1c', label:'HbA1c', group:'Metabolic', units:{conv:'%', si:'%'},
+   bands:{conv:[{max:5.7,status:'ok',label:'Normal'},
+           {max:6.5,status:'warn',label:'Prediabetic range',advice:'HbA1c reflects ~3 months of glucose. Emphasise fibre, whole grains, legumes and vegetables; reduce added sugar and refined carbohydrate.',foods:['Lentils','Oats','Chickpeas','Broccoli','Quinoa'],clinician:true},
+           {max:Infinity,status:'bad',label:'Diabetic range',advice:'Please review with your clinician. Dietary direction is fibre-rich, lower-glycaemic eating with reduced refined carbohydrate.',foods:['Lentils','Oats','Broccoli','Spinach'],clinician:true}]}},
+ {key:'vitd', label:'Vitamin D (25-OH)', group:'Vitamins',
+   units:{conv:'ng/mL', si:'nmol/L'},
+   bands:{conv:[{max:20,status:'bad',label:'Deficient',advice:'Include vitamin-D-rich foods and sensible sun exposure; ask your clinician about supplementation, which is often needed at this level.',foods:['Salmon','Tuna, canned','Egg, large','Milk, whole'],clinician:true},
+           {max:30,status:'warn',label:'Insufficient',advice:'Modestly low. Oily fish, egg yolk and fortified dairy help; sunlight exposure supports synthesis.',foods:['Salmon','Egg, large','Milk, whole','Tuna, canned']},
+           {max:100,status:'ok',label:'Sufficient'},
+           {max:Infinity,status:'warn',label:'High',advice:'Unusually high — usually from over-supplementation. Review your supplement dose with your clinician.',clinician:true}]},
+   siBands:[{max:50,status:'bad',label:'Deficient',advice:'Include vitamin-D-rich foods and sensible sun exposure; ask your clinician about supplementation.',foods:['Salmon','Tuna, canned','Egg, large','Milk, whole'],clinician:true},
+            {max:75,status:'warn',label:'Insufficient',advice:'Modestly low. Oily fish, egg yolk and fortified dairy help; sunlight supports synthesis.',foods:['Salmon','Egg, large','Milk, whole']},
+            {max:250,status:'ok',label:'Sufficient'},
+            {max:Infinity,status:'warn',label:'High',advice:'Unusually high — review supplement dose with your clinician.',clinician:true}]},
+ {key:'b12', label:'Vitamin B12', group:'Vitamins',
+   units:{conv:'pg/mL', si:'pmol/L'},
+   bands:{conv:[{max:200,status:'bad',label:'Low',advice:'B12 comes mainly from animal foods. If you eat little animal protein, fortified foods or a supplement may be needed — discuss with your clinician.',foods:['Salmon','Beef, lean','Egg, large','Greek yogurt, plain','Tuna, canned'],clinician:true},
+           {max:900,status:'ok',label:'Normal'},
+           {max:Infinity,status:'warn',label:'High',advice:'Often related to supplementation; worth mentioning to your clinician.',clinician:true}]},
+   siBands:[{max:148,status:'bad',label:'Low',advice:'B12 comes mainly from animal foods. Fortified foods or a supplement may be needed — discuss with your clinician.',foods:['Salmon','Beef, lean','Egg, large','Greek yogurt, plain'],clinician:true},
+            {max:664,status:'ok',label:'Normal'},
+            {max:Infinity,status:'warn',label:'High',advice:'Often supplement-related; mention to your clinician.',clinician:true}]},
+ {key:'ferritin', label:'Ferritin (iron stores)', group:'Vitamins',
+   units:{conv:'ng/mL', si:'µg/L'},
+   bands:{conv:[{max:30,status:'bad',label:'Low (iron-deficient)',advice:'Pair iron-rich foods (red meat, legumes, leafy greens) with a vitamin-C source to aid absorption; avoid tea/coffee right after iron-rich meals. Low ferritin is worth a clinician review.',foods:['Beef, lean','Lentils','Spinach','Chickpeas','Tofu'],clinician:true},
+           {max:300,status:'ok',label:'Normal'},
+           {max:Infinity,status:'warn',label:'High',advice:'Elevated ferritin can have several causes; please review with your clinician.',clinician:true}]}},
+ {key:'chol', label:'Total cholesterol', group:'Lipids',
+   units:{conv:'mg/dL', si:'mmol/L'},
+   bands:{conv:[{max:200,status:'ok',label:'Desirable'},
+           {max:240,status:'warn',label:'Borderline high',advice:'Emphasise soluble fibre and unsaturated fats; limit saturated fat.',foods:['Oats','Lentils','Olive oil','Almonds','Salmon']},
+           {max:Infinity,status:'bad',label:'High',advice:'Increase soluble fibre (oats, legumes) and unsaturated fats; reduce saturated and trans fats. Please review with your clinician.',foods:['Oats','Lentils','Olive oil','Almonds','Salmon','Walnuts'],clinician:true}]},
+   siBands:[{max:5.2,status:'ok',label:'Desirable'},
+            {max:6.2,status:'warn',label:'Borderline high',advice:'Emphasise soluble fibre and unsaturated fats; limit saturated fat.',foods:['Oats','Lentils','Olive oil','Almonds','Salmon']},
+            {max:Infinity,status:'bad',label:'High',advice:'Increase soluble fibre and unsaturated fats; reduce saturated and trans fats. Review with your clinician.',foods:['Oats','Lentils','Olive oil','Almonds','Salmon','Walnuts'],clinician:true}]},
+ {key:'ldl', label:'LDL cholesterol', group:'Lipids',
+   units:{conv:'mg/dL', si:'mmol/L'},
+   bands:{conv:[{max:100,status:'ok',label:'Optimal'},
+           {max:160,status:'warn',label:'Above optimal',advice:'Increase soluble fibre (oats, legumes) and swap saturated for unsaturated fats (olive oil, nuts, oily fish).',foods:['Oats','Lentils','Olive oil','Almonds','Salmon']},
+           {max:Infinity,status:'bad',label:'High',advice:'Soluble fibre and unsaturated fats help lower LDL; reduce saturated and trans fats. Please review with your clinician.',foods:['Oats','Lentils','Olive oil','Almonds','Salmon','Walnuts'],clinician:true}]},
+   siBands:[{max:2.6,status:'ok',label:'Optimal'},
+            {max:4.1,status:'warn',label:'Above optimal',advice:'Increase soluble fibre and swap saturated for unsaturated fats.',foods:['Oats','Lentils','Olive oil','Almonds','Salmon']},
+            {max:Infinity,status:'bad',label:'High',advice:'Soluble fibre and unsaturated fats help; reduce saturated fat. Review with your clinician.',foods:['Oats','Lentils','Olive oil','Almonds','Salmon'],clinician:true}]},
+ {key:'hdl', label:'HDL cholesterol', group:'Lipids',
+   units:{conv:'mg/dL', si:'mmol/L'},
+   bands:{conv:[{max:40,status:'bad',label:'Low',advice:'Regular activity and unsaturated fats (olive oil, nuts, oily fish) support HDL.',foods:['Olive oil','Almonds','Salmon','Avocado']},
+           {max:60,status:'ok',label:'Adequate'},
+           {max:Infinity,status:'ok',label:'Protective'}]},
+   siBands:[{max:1.0,status:'bad',label:'Low',advice:'Regular activity and unsaturated fats support HDL.',foods:['Olive oil','Almonds','Salmon','Avocado']},
+            {max:1.55,status:'ok',label:'Adequate'},
+            {max:Infinity,status:'ok',label:'Protective'}]},
+ {key:'trig', label:'Triglycerides', group:'Lipids',
+   units:{conv:'mg/dL', si:'mmol/L'},
+   bands:{conv:[{max:150,status:'ok',label:'Normal'},
+           {max:200,status:'warn',label:'Borderline high',advice:'Reduce refined carbohydrate, added sugar and alcohol; increase omega-3 from oily fish.',foods:['Salmon','Tuna, canned','Oats','Walnuts']},
+           {max:Infinity,status:'bad',label:'High',advice:'Lower refined carbohydrate, sugar and alcohol; increase omega-3. Please review with your clinician.',foods:['Salmon','Tuna, canned','Oats','Walnuts'],clinician:true}]},
+   siBands:[{max:1.7,status:'ok',label:'Normal'},
+            {max:2.3,status:'warn',label:'Borderline high',advice:'Reduce refined carbohydrate, sugar and alcohol; increase omega-3.',foods:['Salmon','Tuna, canned','Oats','Walnuts']},
+            {max:Infinity,status:'bad',label:'High',advice:'Lower refined carbohydrate, sugar and alcohol; increase omega-3. Review with your clinician.',foods:['Salmon','Tuna, canned','Oats','Walnuts'],clinician:true}]},
+];
+const BLOOD_GROUPS=['','O+','O−','A+','A−','B+','B−','AB+','AB−'];
+
+function bmUnit(bm,sys){return bm.units[sys]||bm.units.conv;}
+function bmBands(bm,sys){return (sys==='si'&&bm.siBands)?bm.siBands:bm.bands.conv;}
+function classifyBM(bm,value,sys){
+  if(value==null||isNaN(value))return null;
+  const bands=bmBands(bm,sys);
+  for(const b of bands){ if(value<b.max) return b; }
+  return bands[bands.length-1];
+}
+function latestPanel(){
+  if(!DB.labs.length)return null;
+  return DB.labs.slice().sort((a,b)=>(a.date<b.date?1:-1))[0];
+}
+function focusFoodsTuples(){
+  // gather suggested foods from active focuses, map names -> food tuples for quick-add
+  const names=new Set(); DB.focuses.forEach(f=>(f.foods||[]).forEach(n=>names.add(n)));
+  const out=[]; allFoods().forEach(t=>{ if(names.has(t[0])){ out.push(t); names.delete(t[0]); }});
+  return out;
+}
+
+function renderLabs(){
+  const s=DB.settings; const sys=s.labUnits;
+  const panel=latestPanel();
+  // build entry form
+  const grp=`<div class="labfld"><span>Blood group</span><select id="lab_group">${BLOOD_GROUPS.map(g=>`<option ${panel&&panel.group===g?'selected':''} value="${g}">${g||'—'}</option>`).join('')}</select></div>`;
+  const fields=BIOMARKERS.map(bm=>`<div class="labfld"><span>${bm.label}</span><div class="inp"><input id="lab_${bm.key}" type="number" step="any" placeholder=""><span class="u">${bmUnit(bm,sys)}</span></div></div>`).join('');
+
+  // status of latest panel
+  let statusRows='', recs=[];
+  if(panel){
+    const psys=panel.units||'conv';
+    BIOMARKERS.forEach(bm=>{
+      const v=panel[bm.key];
+      if(v==null||v==='')return;
+      const band=classifyBM(bm,+v,psys);
+      if(!band)return;
+      statusRows+=`<div class="bm"><span class="lbl">${bm.label}</span><span class="v">${v} ${bmUnit(bm,psys)}</span><span class="st ${band.status}">${band.label}</span></div>`;
+      if(band.status!=='ok'&&(band.advice)){ recs.push({bm,band}); }
+    });
+  }
+
+  // recommendation cards
+  const recCards=recs.map(({bm,band})=>{
+    const fk=bm.key+':'+band.label;
+    const following=DB.focuses.some(f=>f.key===fk);
+    const chips=(band.foods||[]).map(n=>`<span class="chip" data-add="${n}">+ ${n}</span>`).join('');
+    return `<div class="rec ${band.status==='bad'?'bad':''}">
+      <div class="rh"><b>${bm.label}</b><span class="st ${band.status}">${band.label}</span></div>
+      <p>${band.advice}</p>
+      ${chips?`<div class="chips">${chips}</div>`:''}
+      ${band.clinician?`<div class="clin">▲ Discuss this result with your clinician.</div>`:''}
+      ${(band.foods&&band.foods.length)?`<button class="followbtn ${following?'on':''}" data-follow="${fk}" data-bm="${bm.key}" data-band="${band.label}">${following?'✓ Following — foods on Today':'Follow: suggest these foods'}</button>`:''}
+    </div>`;
+  }).join('');
+
+  // active focuses
+  const focusChips=DB.focuses.map((f,i)=>`<span class="focuschip">${f.label}<button data-unfocus="${i}">×</button></span>`).join('');
+
+  // panel history
+  const hist=DB.labs.slice().sort((a,b)=>(a.date<b.date?1:-1)).map((p,idx)=>{
+    const vals=BIOMARKERS.filter(bm=>p[bm.key]!=null&&p[bm.key]!=='').map(bm=>`${bm.label.split(' (')[0]} ${p[bm.key]}`).join(' · ');
+    return `<div class="entry"><span class="nm">${fmtDate(p.date)} <span class="mc">${p.group||''} · ${(p.units||'conv')==='si'?'SI':'US'} units</span><div class="pill" style="margin-top:3px">${vals||'no values'}</div></span><button class="del" data-delpanel="${p.id}">×</button></div>`;
+  }).join('')||'<div class="empty">No panels saved yet.</div>';
+
+  $('#labs').innerHTML=`
+    <div class="card">
+      <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px">
+        <h2 style="margin:0">Add a blood panel</h2>
+        <div class="unittoggle"><button id="uConv" class="${sys==='conv'?'on':''}">US mg/dL</button><button id="uSi" class="${sys==='si'?'on':''}">SI mmol/L</button></div>
+      </div>
+      <div class="labgrid" style="margin-top:14px">
+        <div class="labfld"><span>Test date</span><input id="lab_date" type="date" value="${todayStr()}"></div>
+        ${grp}
+        ${fields}
+      </div>
+      <div style="margin-top:14px"><button class="btn" id="saveLab">Save panel</button></div>
+      <div class="disclaim"><b>Not medical advice.</b> Reference ranges are typical adult values and differ by laboratory, sex and region — your lab's ranges and your clinician's interpretation take precedence. Suggestions here are general nutrition information to discuss with a professional, not a diagnosis or treatment plan.</div>
+    </div>
+
+    ${panel?`<div class="card"><h2>Latest panel · ${fmtDate(panel.date)}</h2>
+      ${panel.group?`<div class="bm"><span class="lbl">Blood group</span><span class="v">${panel.group}</span><span class="pill">reference only — no blood-type diet</span></div>`:''}
+      ${statusRows||'<div class="empty">No biomarker values in this panel.</div>'}
+    </div>`:''}
+
+    ${recs.length?`<div class="card"><h2>Suggested focus — you choose</h2>
+      ${focusChips?`<div style="margin-bottom:8px">Active: ${focusChips}</div>`:''}
+      ${recCards}
+    </div>`:(panel?`<div class="card"><h2>Recommendations</h2><div class="empty">All recorded markers are in range. Nice.</div></div>`:'')}
+
+    <div class="card"><h2>Panel history</h2><div class="entries">${hist}</div></div>
+  `;
+
+  $('#uConv').onclick=()=>{s.labUnits='conv';saveDB();renderLabs();};
+  $('#uSi').onclick=()=>{s.labUnits='si';saveDB();renderLabs();};
+  $('#saveLab').onclick=saveLabPanel;
+  $('#labs').querySelectorAll('[data-add]').forEach(c=>c.onclick=()=>{
+    const t=allFoods().find(f=>f[0]===c.dataset.add); if(t){curDate=todayStr();addFood(t);
+      document.querySelector('#nav button[data-tab="today"]').click();}
+  });
+  $('#labs').querySelectorAll('[data-follow]').forEach(b=>b.onclick=()=>{
+    const key=b.dataset.follow;const bm=BIOMARKERS.find(x=>x.key===b.dataset.bm);
+    const band=classifyBM(bm, +latestPanel()[bm.key], latestPanel().units||'conv');
+    const i=DB.focuses.findIndex(f=>f.key===key);
+    if(i>=0)DB.focuses.splice(i,1); else DB.focuses.push({key,label:bm.label+' — '+b.dataset.band,foods:band.foods||[]});
+    saveDB();renderLabs();
+  });
+  $('#labs').querySelectorAll('[data-unfocus]').forEach(b=>b.onclick=()=>{DB.focuses.splice(+b.dataset.unfocus,1);saveDB();renderLabs();});
+  $('#labs').querySelectorAll('[data-delpanel]').forEach(b=>b.onclick=()=>{DB.labs=DB.labs.filter(p=>p.id!==b.dataset.delpanel);saveDB();renderLabs();});
+}
+function saveLabPanel(){
+  const sys=DB.settings.labUnits;
+  const p={id:uid(),date:$('#lab_date').value||todayStr(),group:$('#lab_group').value,units:sys};
+  let any=false;
+  BIOMARKERS.forEach(bm=>{const el=$('#lab_'+bm.key);const v=el.value;if(v!==''){p[bm.key]=+v;any=true;}});
+  if(p.group)any=true;
+  if(!any){alert('Enter at least one value.');return;}
+  DB.labs.push(p);saveDB();renderLabs();
 }
 
 /* ============================== SETTINGS ============================== */
