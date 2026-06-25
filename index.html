@@ -111,6 +111,10 @@
   .toggle button.on{background:var(--fast);color:#fff;font-weight:600}
   .inline-lbl{display:flex;align-items:center;gap:10px;flex-wrap:wrap;font-size:13px;color:var(--muted)}
   .inline-lbl input[type=number]{width:80px;border:1px solid var(--line);border-radius:8px;padding:7px 9px;font-family:var(--mono)}
+  .exrow{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+  .exrow select{flex:1;min-width:150px;border:1px solid var(--line);border-radius:8px;padding:8px 9px;font-size:13px;background:#fff}
+  .exrow input{width:70px;border:1px solid var(--line);border-radius:8px;padding:8px 9px;font-family:var(--mono);font-size:14px}
+  .exrow button{border:1px solid var(--fast);background:var(--fast);color:#fff;border-radius:8px;padding:8px 14px;font-weight:600;font-size:13px}
 
   /* settings */
   .grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
@@ -187,7 +191,8 @@ function defaults(){
     settings:{
       kcalTarget:2000, proteinTarget:130, carbTarget:200, fatTarget:65,
       rangeLow:1700, rangeHigh:2100,
-      planStart:'12:00', planEnd:'20:00'
+      planStart:'12:00', planEnd:'20:00',
+      bodyWeight:70        // kg, default for exercise calorie estimate
     },
     custom:[],          // user-added foods
     days:{}             // 'YYYY-MM-DD' -> day record
@@ -258,13 +263,38 @@ const FOODS=[
 ];
 function allFoods(){ return FOODS.concat((DB.custom||[]).map(f=>[f.name,f.unit,f.kcal,f.p,f.c,f.f,true])); }
 
+/* ============================== EXERCISE DB (MET values) ============================== */
+// [name, MET] — kcal/min = MET * weightKg / 60.  Source: Compendium of Physical Activities.
+const EXERCISES=[
+ ["Walking, slow (3 km/h)",2.8],["Walking, moderate (5 km/h)",3.5],["Walking, brisk (6.5 km/h)",5.0],
+ ["Hiking",6.0],["Running, 8 km/h",8.3],["Running, 10 km/h",9.8],["Running, 12 km/h",11.8],
+ ["Cycling, leisure (<16 km/h)",4.0],["Cycling, moderate (19–22 km/h)",8.0],["Cycling, vigorous (>22 km/h)",10.0],
+ ["Stationary bike, moderate",7.0],["Swimming, leisurely",6.0],["Swimming, laps",8.3],
+ ["Rowing machine, moderate",7.0],["Elliptical trainer",5.0],["Stair climbing",8.0],
+ ["Jump rope",11.0],["Jumping jacks",8.0],["HIIT / circuit training",8.0],
+ ["Weight training, general",3.5],["Weight training, vigorous",6.0],["Calisthenics, vigorous",8.0],
+ ["Yoga",2.5],["Pilates",3.0],["Stretching",2.3],["Boxing (bag/pads)",7.8],
+ ["Football (soccer)",7.0],["Basketball",6.5],["Tennis",7.3],["Badminton",5.5],
+ ["Dancing",5.0],["Cross-country skiing",9.0],["Gardening",3.8],["House cleaning",3.3]
+];
+
 /* ============================== HELPERS ============================== */
 const $=s=>document.querySelector(s);
 function todayStr(){const d=new Date();return d.toISOString().slice(0,10);}
 let curDate=todayStr();
 function fmtDate(s){const d=new Date(s+'T00:00:00');return d.toLocaleDateString(undefined,{weekday:'short',month:'short',day:'numeric'});}
-function getDay(s){ if(!DB.days[s]) DB.days[s]={entries:[],exercised:false,exerciseMin:0,weight:null,firstMeal:'',lastMeal:''}; return DB.days[s]; }
+function getDay(s){ if(!DB.days[s]) DB.days[s]={entries:[],exercises:[],weight:null,firstMeal:'',lastMeal:''}; const r=DB.days[s]; if(!r.exercises)r.exercises=[]; return r; }
 function dayTotals(rec){let k=0,p=0,c=0,f=0;(rec.entries||[]).forEach(e=>{k+=e.kcal;p+=e.p;c+=e.c;f+=e.f;});return {k,p,c,f};}
+function bodyWeightFor(rec){return (rec&&rec.weight!=null?rec.weight:(DB.settings.bodyWeight||70));}
+// normalize exercise list, tolerating legacy {exercised,exerciseMin} records
+function dayExList(rec){
+  if(rec.exercises&&rec.exercises.length) return rec.exercises;
+  if(rec.exercised) return [{id:'legacy',name:'Exercise',met:5,minutes:rec.exerciseMin||0,kcal:Math.round(5*bodyWeightFor(rec)*((rec.exerciseMin||0)/60))}];
+  return [];
+}
+function dayExMinutes(rec){return dayExList(rec).reduce((s,e)=>s+(e.minutes||0),0);}
+function dayExKcal(rec){return dayExList(rec).reduce((s,e)=>s+(e.kcal||0),0);}
+function dayExercised(rec){return dayExMinutes(rec)>0;}
 function hhmmToDec(t){if(!t||!/^\d{1,2}:\d{2}$/.test(t))return null;const[a,b]=t.split(':').map(Number);return a+b/60;}
 function fastingHours(rec){const a=hhmmToDec(rec.firstMeal),b=hhmmToDec(rec.lastMeal);if(a==null||b==null||b<a)return null;return +(24-(b-a)).toFixed(1);}
 function windowHours(rec){const a=hhmmToDec(rec.firstMeal),b=hhmmToDec(rec.lastMeal);if(a==null||b==null||b<a)return null;return +(b-a).toFixed(1);}
@@ -307,6 +337,7 @@ function renderToday(){
       <div class="track"><div class="fill" style="width:${pct}%;background:${color}"></div></div></div>`;
   };
   const kpct=s.kcalTarget>0?Math.min(100,t.k/s.kcalTarget*100):0;
+  const burned=dayExKcal(rec); const net=Math.round(t.k-burned);
   $('#today').innerHTML=`
     <div class="datenav">
       <button id="prevD">‹</button>
@@ -354,23 +385,21 @@ function renderToday(){
         <div class="track" style="height:9px;background:#eef1f3;border-radius:6px;overflow:hidden;margin-top:10px">
           <div class="fill" style="height:100%;width:${kpct}%;background:var(--feed);border-radius:6px"></div>
         </div>
+        ${burned>0?`<div class="kcal-sub" style="margin-top:8px">${Math.round(t.k)} in − ${burned} burned · <b style="font-family:var(--disp);color:var(--ink)">net ${net}</b> kcal</div>`:''}
         ${macroBar('Protein',t.p,s.proteinTarget,'var(--prot)')}
         ${macroBar('Carbohydrate',t.c,s.carbTarget,'var(--carb)')}
         ${macroBar('Fat',t.f,s.fatTarget,'var(--fat)')}
       </div>
       <div class="col card">
         <h2>Activity & body</h2>
-        <div style="margin-bottom:14px">
-          <div style="font-size:12px;color:var(--muted);margin-bottom:6px">Exercise today</div>
-          <div class="toggle">
-            <button id="exNo" class="${!rec.exercised?'on':''}">No</button>
-            <button id="exYes" class="${rec.exercised?'on':''}">Yes</button>
-          </div>
-          <div class="inline-lbl" style="margin-top:10px;${rec.exercised?'':'opacity:.4;pointer-events:none'}">
-            Minutes <input type="number" id="exMin" min="0" step="5" value="${rec.exerciseMin||0}">
-          </div>
+        <div class="exrow">
+          <select id="exSel">${EXERCISES.map((e,i)=>`<option value="${i}">${e[0]} · ${e[1]} MET</option>`).join('')}</select>
+          <input type="number" id="exMin" min="0" step="5" placeholder="min" value="30">
+          <button id="exAdd">Add</button>
         </div>
-        <div class="inline-lbl">Weight <input type="number" id="weight" step="0.1" placeholder="kg" value="${rec.weight??''}"> kg</div>
+        <div class="pill" style="margin:6px 0 4px">burn = MET × ${bodyWeightFor(rec)} kg × time · uses ${rec.weight!=null?'logged weight':'default weight'}</div>
+        <div id="exList"></div>
+        <div class="inline-lbl" style="margin-top:12px;border-top:1px solid #eef1f3;padding-top:12px">Weight today <input type="number" id="weight" step="0.1" placeholder="kg" value="${rec.weight??''}"> kg</div>
       </div>
     </div>
 
@@ -391,15 +420,35 @@ function renderToday(){
   $('#jumpToday').onclick=()=>{curDate=todayStr();renderToday();};
   $('#firstMeal').onchange=e=>{rec.firstMeal=e.target.value;saveDB();renderToday();};
   $('#lastMeal').onchange=e=>{rec.lastMeal=e.target.value;saveDB();renderToday();};
-  $('#exNo').onclick=()=>{rec.exercised=false;saveDB();renderToday();};
-  $('#exYes').onclick=()=>{rec.exercised=true;saveDB();renderToday();};
-  const exMin=$('#exMin');if(exMin)exMin.onchange=e=>{rec.exerciseMin=+e.target.value||0;saveDB();};
-  $('#weight').onchange=e=>{rec.weight=e.target.value===''?null:+e.target.value;saveDB();};
+  $('#exAdd').onclick=()=>{
+    const i=+$('#exSel').value; const ex=EXERCISES[i]; const mins=+$('#exMin').value||0;
+    if(mins<=0)return;
+    const kcal=Math.round(ex[1]*bodyWeightFor(rec)*(mins/60));
+    rec.exercises.push({id:uid(),name:ex[0],met:ex[1],minutes:mins,kcal});
+    saveDB();renderToday();
+  };
+  $('#weight').onchange=e=>{rec.weight=e.target.value===''?null:+e.target.value;saveDB();renderToday();};
   $('#customBtn').onclick=showCustomForm;
   const fs=$('#foodSearch');
   fs.oninput=()=>renderResults(fs.value);
   fs.onfocus=()=>renderResults(fs.value);
   renderEntries();
+  renderExList();
+}
+function renderExList(){
+  const rec=getDay(curDate);const box=$('#exList');if(!box)return;
+  const list=rec.exercises||[];
+  if(!list.length){box.innerHTML='<div class="empty" style="padding:8px 0">No exercise logged.</div>';return;}
+  const total=dayExKcal(rec),mins=dayExMinutes(rec);
+  box.innerHTML=list.map(e=>`
+    <div class="entry">
+      <span class="nm">${e.name}</span>
+      <span class="unit">${e.minutes}m</span>
+      <span class="kc">${e.kcal} kcal</span>
+      <button class="del" data-id="${e.id}">×</button>
+    </div>`).join('')+
+    `<div class="entry" style="border-bottom:0"><span class="nm" style="font-family:var(--disp)">Total</span><span class="unit">${mins}m</span><span class="kc" style="font-family:var(--disp)">${total} kcal</span><span style="width:17px"></span></div>`;
+  box.querySelectorAll('.del').forEach(b=>b.onclick=()=>{rec.exercises=rec.exercises.filter(x=>x.id!==b.dataset.id);saveDB();renderToday();});
 }
 function shiftDate(s,n){const d=new Date(s+'T00:00:00');d.setDate(d.getDate()+n);return d.toISOString().slice(0,10);}
 
@@ -496,7 +545,8 @@ function renderHistory(){
       <td style="color:var(--carb)">${Math.round(t.c)}</td>
       <td style="color:var(--fat)">${Math.round(t.f)}</td>
       <td>${fh!=null?fh+'h':'—'}</td>
-      <td>${rec.exercised?'<span class="tick">✓ '+(rec.exerciseMin||0)+'m</span>':'<span class="cross">—</span>'}</td>
+      <td>${dayExercised(rec)?'<span class="tick">✓ '+dayExMinutes(rec)+'m</span>':'<span class="cross">—</span>'}</td>
+      <td>${dayExKcal(rec)>0?'−'+dayExKcal(rec):'—'}</td>
       <td>${rec.weight!=null?rec.weight:'—'}</td>
       <td><span class="badge ${inRange?'in':'out'}">${inRange?'in':'out'}</span></td>
     </tr>`;
@@ -505,7 +555,7 @@ function renderHistory(){
     <div class="card">
       <h2>Last 30 days · ${logged} logged</h2>
       ${logged?`<div style="overflow-x:auto"><table class="htable">
-        <thead><tr><th>Date</th><th>kcal</th><th>P</th><th>C</th><th>F</th><th>Fast</th><th>Exercise</th><th>Weight</th><th>Range</th></tr></thead>
+        <thead><tr><th>Date</th><th>kcal</th><th>P</th><th>C</th><th>F</th><th>Fast</th><th>Exercise</th><th>Burn</th><th>Weight</th><th>Range</th></tr></thead>
         <tbody>${rows}</tbody></table></div>`
       :'<div class="empty">No days logged yet. Add food on the Today tab and your history builds here.</div>'}
     </div>
@@ -514,7 +564,7 @@ function renderHistory(){
 }
 function summaryCard(dates){
   const s=DB.settings;let k=0,fhs=[],exDays=0,inR=0;
-  dates.forEach(d=>{const rec=DB.days[d];const t=dayTotals(rec);k+=t.k;const fh=fastingHours(rec);if(fh!=null)fhs.push(fh);if(rec.exercised)exDays++;if(t.k>=s.rangeLow&&t.k<=s.rangeHigh)inR++;});
+  dates.forEach(d=>{const rec=DB.days[d];const t=dayTotals(rec);k+=t.k;const fh=fastingHours(rec);if(fh!=null)fhs.push(fh);if(dayExercised(rec))exDays++;if(t.k>=s.rangeLow&&t.k<=s.rangeHigh)inR++;});
   const n=dates.length;const avgK=Math.round(k/n);const avgFh=fhs.length?(fhs.reduce((a,b)=>a+b,0)/fhs.length).toFixed(1):'—';
   const stat=(big,lbl)=>`<div style="flex:1;min-width:120px"><div class="kcal-big" style="font-size:30px">${big}</div><div class="kcal-sub">${lbl}</div></div>`;
   return `<div class="card"><h2>Month at a glance</h2><div class="row">
@@ -537,8 +587,9 @@ const FEATURES=[
   {key:'fast',  name:'Fasting hours',     get:r=>fastingHours(r)},
   {key:'window',name:'Eating window (h)', get:r=>windowHours(r)},
   {key:'first', name:'First-meal hour',   get:r=>hhmmToDec(r.firstMeal)},
-  {key:'ex',    name:'Exercised (0/1)',   get:r=>r.exercised?1:0},
-  {key:'exmin', name:'Exercise minutes',  get:r=>r.exercised?(r.exerciseMin||0):0},
+  {key:'ex',    name:'Exercised (0/1)',   get:r=>dayExercised(r)?1:0},
+  {key:'exmin', name:'Exercise minutes',  get:r=>dayExMinutes(r)},
+  {key:'exkcal',name:'Exercise kcal burned',get:r=>dayExKcal(r)},
   {key:'meals', name:'Number of meals',   get:r=>(r.entries||[]).length},
   {key:'inrange',name:'Within range (0/1)',get:r=>{const t=dayTotals(r);return (t.k>=DB.settings.rangeLow&&t.k<=DB.settings.rangeHigh)?1:0;}},
   {key:'prot',  name:'Protein (g)',       get:r=>dayTotals(r).p},
@@ -547,6 +598,7 @@ const FEATURES=[
 ];
 const TARGETS=[
   {key:'kcal',  name:'Total calories',  get:r=>dayTotals(r).k, exclude:['prot','carb','fat','inrange']},
+  {key:'net',   name:'Net calories (intake − burned)', get:r=>dayTotals(r).k-dayExKcal(r), exclude:['prot','carb','fat','inrange','exkcal']},
   {key:'weight',name:'Body weight',     get:r=>r.weight,       exclude:[], needWeight:true},
   {key:'prot',  name:'Protein intake',  get:r=>dayTotals(r).p, exclude:['prot']},
 ];
@@ -597,7 +649,7 @@ function renderAnalysis(){
     const order=F.map((f,j)=>({f,j,imp:global[j],dir:beta[j]})).sort((a,b)=>b.imp-a.imp);
     const maxImp=Math.max(...global,1e-9);
     const tgtName=TARGETS.find(t=>t.key===curTarget).name;
-    const unit=curTarget==='weight'?'kg':(curTarget==='kcal'?'kcal':'g');
+    const unit=curTarget==='weight'?'kg':((curTarget==='kcal'||curTarget==='net')?'kcal':'g');
 
     const bars=order.map(o=>{
       const w=o.imp/maxImp*48; // half-width %
@@ -682,6 +734,9 @@ function renderSettings(){
       </div>
       <h2 style="margin-top:20px">In-range band</h2>
       <div class="grid2">${f('rangeLow','Lower kcal',s.rangeLow)}${f('rangeHigh','Upper kcal',s.rangeHigh)}</div>
+      <h2 style="margin-top:20px">Body</h2>
+      <div class="grid2">${f('bodyWeight','Body weight (kg)',s.bodyWeight,'0.1')}<div></div></div>
+      <div class="pill" style="margin-top:6px">used to estimate exercise calories when no daily weight is logged</div>
       <h2 style="margin-top:20px">Planned eating window</h2>
       <div class="grid2">
         <label class="fld"><span>Window start</span><input id="planStart" type="time" value="${s.planStart}"></label>
@@ -698,7 +753,7 @@ function renderSettings(){
       </div>
     </div>`;
   $('#saveSet').onclick=()=>{
-    ['kcalTarget','proteinTarget','carbTarget','fatTarget','rangeLow','rangeHigh'].forEach(k=>s[k]=+$('#'+k).value||0);
+    ['kcalTarget','proteinTarget','carbTarget','fatTarget','rangeLow','rangeHigh','bodyWeight'].forEach(k=>s[k]=+$('#'+k).value||0);
     s.planStart=$('#planStart').value;s.planEnd=$('#planEnd').value;saveDB();
     $('#saveSet').textContent='Saved ✓';setTimeout(()=>$('#saveSet').textContent='Save settings',1200);
   };
