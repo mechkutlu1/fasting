@@ -320,9 +320,9 @@ const EXERCISES=[
 
 /* ============================== HELPERS ============================== */
 const $=s=>document.querySelector(s);
-function todayStr(){const d=new Date();return d.toISOString().slice(0,10);}
+function todayStr(){const d=new Date();return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;}
 let curDate=todayStr();
-function fmtDate(s){const d=new Date(s+'T00:00:00');return d.toLocaleDateString(undefined,{weekday:'short',month:'short',day:'numeric'});}
+function fmtDate(s){const [y,m,dd]=s.split('-').map(Number);const d=new Date(Date.UTC(y,m-1,dd));return d.toLocaleDateString(undefined,{weekday:'short',month:'short',day:'numeric',timeZone:'UTC'});}
 function getDay(s){ if(!DB.days[s]) DB.days[s]={entries:[],exercises:[],weight:null,firstMeal:'',lastMeal:''}; const r=DB.days[s]; if(!r.exercises)r.exercises=[]; return r; }
 function dayTotals(rec){let k=0,p=0,c=0,f=0;(rec.entries||[]).forEach(e=>{k+=e.kcal;p+=e.p;c+=e.c;f+=e.f;});return {k,p,c,f};}
 function bodyWeightFor(rec){return (rec&&rec.weight!=null?rec.weight:(DB.settings.bodyWeight||70));}
@@ -493,7 +493,7 @@ function renderExList(){
     `<div class="entry" style="border-bottom:0"><span class="nm" style="font-family:var(--disp)">Total</span><span class="unit">${mins}m</span><span class="kc" style="font-family:var(--disp)">${total} kcal</span><span style="width:17px"></span></div>`;
   box.querySelectorAll('.del').forEach(b=>b.onclick=()=>{rec.exercises=rec.exercises.filter(x=>x.id!==b.dataset.id);saveDB();renderToday();});
 }
-function shiftDate(s,n){const d=new Date(s+'T00:00:00');d.setDate(d.getDate()+n);return d.toISOString().slice(0,10);}
+function shiftDate(s,n){const [y,m,dd]=s.split('-').map(Number);const d=new Date(Date.UTC(y,m-1,dd));d.setUTCDate(d.getUTCDate()+n);return d.toISOString().slice(0,10);}
 
 function renderResults(q){
   const box=$('#results');q=(q||'').trim().toLowerCase();
